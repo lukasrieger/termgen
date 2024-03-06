@@ -1,0 +1,17 @@
+[versions]
+arrow = "1.2.3"
+kotlin = "1.9.21"
+kotest = "5.8.0"
+ksp = "1.9.21-1.0.16"
+
+[libraries]
+arrow-core = { module = "io.arrow-kt:arrow-core", version.ref = "arrow" }
+arrow-optics = { module = "io.arrow-kt:arrow-optics", version.ref = "arrow" }
+arrow-optics-ksp = { module = "io.arrow-kt:arrow-optics-ksp-plugin", version.ref = "arrow" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
+kotest = { module = "io.kotest:kotest-property-jvm", version.ref = "kotest" }
+
+[plugins]
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+
