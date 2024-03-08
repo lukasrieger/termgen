@@ -32,6 +32,8 @@ sealed interface ExprF<out A, out K : ForExpr> : Kind<K, A> {
 
     data class Pow<A>(val base: A, val exponent: Int) : PureF<A>
 
+    data class Sqrt<A>(val base: A, val nth: A) : PureF<A>
+
     data class Const(val value: Int) : PureF<Nothing>
 
     data object Var : ExprF<Nothing, ForExpr>
@@ -47,6 +49,7 @@ sealed interface ExprF<out A, out K : ForExpr> : Kind<K, A> {
                         is Mul -> Mul(f(left), f(right))
                         is Pow -> Pow(f(base), exponent)
                         is Sub -> Sub(f(left), f(right))
+                        is Sqrt -> Sqrt(f(base), f(nth))
                         Var -> Var
                     }
                 } as Kind<K, R>
@@ -68,5 +71,7 @@ fun mul(left: Fix<ForExpr>, right: Fix<ForExpr>) = Fix(ExprF.Mul(left, right))
 fun div(left: Fix<ForExpr>, right: Fix<ForExpr>) = Fix(ExprF.Div(left, right))
 
 fun pow(base: Fix<ForExpr>, exponent: Int) = Fix(ExprF.Pow(base, exponent))
+
+fun sqrt(base: Fix<ForExpr>, nth: Fix<ForExpr>) = Fix(ExprF.Sqrt(base, nth))
 
 fun const(value: Int) = Fix(ExprF.Const(value))

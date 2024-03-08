@@ -31,7 +31,7 @@ enum class Complexity(
     ),
 
     Symbolic(
-        valueRange = 1 .. 100,
+        valueRange = 1..100,
         expressionDepth = 4,
         allowedOperators = setOf(Operator.Plus, Operator.Minus, Operator.Times),
         symbolsAllowed = true

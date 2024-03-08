@@ -12,6 +12,7 @@ val evalAlgebra: Algebra<ForPure, Int> = {
             is ExprF.Mul -> left * right
             is ExprF.Pow -> base.toDouble().pow(exponent).toInt()
             is ExprF.Sub -> left - right
+            is ExprF.Sqrt -> base.toDouble().pow(1 / nth).toInt()
         }
     }
 }
@@ -26,6 +27,7 @@ val countUnknownsAlgebra: Algebra<ForExpr, Int> = {
             is ExprF.Pow -> base
             is ExprF.Sub -> left + right
             is ExprF.Var -> 1
+            is ExprF.Sqrt -> base + nth
         }
     }
 }
@@ -34,48 +36,42 @@ typealias Path = List<Pair<Operator, Fix<ForExpr>>>
 
 val pathToUnknownAlgebra: RAlgebra<ForExpr, Fix<ForExpr>, Path> = {
     it.fix().run {
-        when(this) {
-            is ExprF.Add -> {
-                val self = add(left.first, right.first)
-                when {
-                    left.second.isNotEmpty() -> left.second + Pair(Operator.Minus, right.first)
-                    right.second.isNotEmpty() -> right.second + Pair(Operator.Minus, left.first)
-                    else -> emptyList()
-                }
+        when (this) {
+            is ExprF.Add -> when {
+                left.second.isNotEmpty() -> left.second + Pair(Operator.Minus, right.first)
+                right.second.isNotEmpty() -> right.second + Pair(Operator.Minus, left.first)
+                else -> emptyList()
             }
+
             is ExprF.Const -> emptyList()
-            is ExprF.Div -> {
-                val self = add(left.first, right.first)
-                when {
-                    left.second.isNotEmpty() -> left.second + Pair(Operator.Times, right.first)
-                    right.second.isNotEmpty() -> right.second + Pair(Operator.Times, left.first)
-                    else -> emptyList()
-                }
+            is ExprF.Div -> when {
+                left.second.isNotEmpty() -> left.second + Pair(Operator.Times, right.first)
+                right.second.isNotEmpty() -> right.second + Pair(Operator.Times, left.first)
+                else -> emptyList()
             }
-            is ExprF.Mul -> {
-                val self = add(left.first, right.first)
-                when {
-                    left.second.isNotEmpty() -> left.second + Pair(Operator.Div, right.first)
-                    right.second.isNotEmpty() -> right.second + Pair(Operator.Div, left.first)
-                    else -> emptyList()
-                }
+
+            is ExprF.Mul -> when {
+                left.second.isNotEmpty() -> left.second + Pair(Operator.Div, right.first)
+                right.second.isNotEmpty() -> right.second + Pair(Operator.Div, left.first)
+                else -> emptyList()
             }
-            is ExprF.Pow -> {
-                val self = pow(base.first, exponent)
-                when {
-                    base.second.isNotEmpty() -> base.second + Pair(Operator.Log, const(exponent))
-                    else -> emptyList()
-                }
+
+            is ExprF.Pow -> when {
+                base.second.isNotEmpty() -> base.second + Pair(Operator.Sqrt, const(exponent))
+                else -> emptyList()
             }
-            is ExprF.Sub -> {
-                val self = add(left.first, right.first)
-                when {
-                    left.second.isNotEmpty() -> left.second + Pair(Operator.Plus, right.first)
-                    right.second.isNotEmpty() -> right.second + Pair(Operator.Plus, left.first)
-                    else -> emptyList()
-                }
+
+            is ExprF.Sub -> when {
+                left.second.isNotEmpty() -> left.second + Pair(Operator.Plus, right.first)
+                right.second.isNotEmpty() -> right.second + Pair(Operator.Plus, left.first)
+                else -> emptyList()
             }
-            ExprF.Var -> listOf(Pair(Operator.Plus, variable()))
+
+            ExprF.Var -> listOf(Pair(Operator.NoOp, variable()))
+            is ExprF.Sqrt -> when {
+                base.second.isNotEmpty() -> base.second + Pair(Operator.Times, base.first)
+                else -> emptyList()
+            }
         }
     }
 }
@@ -90,6 +86,7 @@ fun solveWith(x: Int = 0): Algebra<ForExpr, Int> = {
             is ExprF.Mul -> left * right
             is ExprF.Pow -> base.toDouble().pow(exponent).toInt()
             is ExprF.Sub -> left - right
+            is ExprF.Sqrt -> base.toDouble().pow(1 / nth).toInt()
             is ExprF.Var -> x
         }
     }
@@ -104,6 +101,7 @@ val showAlgebra: Algebra<ForExpr, String> = {
             is ExprF.Mul -> "(${left} * ${right})"
             is ExprF.Pow -> "${base}^${exponent}"
             is ExprF.Sub -> "(${left} - ${right})"
+            is ExprF.Sqrt -> "sqrt($base, $nth)"
             is ExprF.Var -> "x"
         }
     }
@@ -130,6 +128,7 @@ val derivationAlgebra: RAlgebra<ForExpr, Fix<ForExpr>, Fix<ForExpr>> = {
             )
 
             is ExprF.Sub -> sub(left.second, right.second)
+            is ExprF.Sqrt -> TODO()
             ExprF.Var -> const(1)
         }
     }
@@ -151,7 +150,7 @@ fun expCoAlgebra(
                 Operator.Minus -> ExprF.Sub(leftDef, rightDef)
                 Operator.Times -> ExprF.Mul(leftDef, rightDef)
                 Operator.Div -> ExprF.Div(leftDef, rightDef)
-                Operator.Log -> error("Unsupported")
+                else -> error("Unsupported")
             }
         }
     }
@@ -194,5 +193,5 @@ fun decompose(result: Int, operator: Operator): Pair<Int, Int> = when (operator)
         a to b
     }
 
-    Operator.Log -> error("Unsupported")
+    else -> error("Unsupported")
 }

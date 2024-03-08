@@ -39,28 +39,33 @@ fun pathToUnknown(exp: Fix<ForExpr>): List<Pair<Operator, Fix<ForExpr>>> =
     ExprF.functor<ForExpr>().run {
         val amount = cata(countUnknownsAlgebra)(exp)
 
-        when(amount) {
+        when (amount) {
             1 -> (cata(simplifyAlgebra) andThen para(pathToUnknownAlgebra))(exp).reversed()
             else -> error("Function contains more than one unknown. This is currently unsupported.")
         }
     }
 
-fun solve(exp: Fix<ForExpr>): Pair<Fix<ForExpr>, Fix<ForExpr>> =
+fun solve(exp: Fix<ForExpr>): List<Pair<Fix<ForExpr>, Fix<ForExpr>>> =
     ExprF.functor<ForExpr>().run {
         val path = pathToUnknown(exp)
         val right: Fix<ForExpr> = const(0)
 
-        val (leftSide, rightSide) = path.dropLast(1).fold(Pair(simplify(exp), right)) { (left, right), (op, by) ->
-            when(op) {
-                Operator.Plus -> simplify(add(left, by)) to simplify(add(right, by))
-                Operator.Minus -> simplify(sub(left, by)) to simplify(sub(right, by))
-                Operator.Times -> simplify(mul(left, by)) to simplify(mul(right, by))
-                Operator.Div -> simplify(div(left, by)) to simplify(div(right, by))
-                Operator.Log -> TODO()
+        path.dropLast(1).fold(listOf(Pair(simplify(exp), right))) { solutions, (op, by) ->
+            solutions.flatMap { (left, right) ->
+                when (op) {
+                    Operator.Plus -> listOf(simplify(add(left, by)) to simplify(add(right, by)))
+                    Operator.Minus -> listOf(simplify(sub(left, by)) to simplify(sub(right, by)))
+                    Operator.Times -> listOf(simplify(mul(left, by)) to simplify(mul(right, by)))
+                    Operator.Div -> listOf(simplify(div(left, by)) to simplify(div(right, by)))
+                    Operator.Sqrt -> listOf(
+                        simplify(sqrt(left, by)) to simplify(sqrt(right, by)),
+                        simplify(sqrt(left, by)) to simplify(mul(const(-1), sqrt(right, by)))
+                    )
+
+                    Operator.NoOp -> listOf(left to right)
+                }
             }
         }
-
-        simplify(leftSide) to simplify(rightSide)
     }
 
 fun nthDerivative(n: Int, exp: Fix<ForExpr>): Fix<ForExpr> = when (n) {
@@ -127,12 +132,32 @@ suspend fun main() {
             add(variable(), mul(const(3), const(5)))
         )
 
+        val derivable5 =
+            sub(
+                pow(variable(), 2),
+                const(8)
+            )
+
+
         println(pathToUnknown(derivable4))
 
         println("Given: ${prettyPrint(simplify(derivable4))} , solving for x gives us: ")
-        val (leftSide, rightSide) = solve(derivable4)
-        println("${prettyPrint(leftSide)} = ${prettyPrint(rightSide)}")
+        val solutions = solve(derivable4)
 
+        solutions.forEach { (leftSide, rightSide) ->
+            println("${prettyPrint(leftSide)} = ${prettyPrint(rightSide)}")
+        }
+
+        println("-------")
+
+        println(pathToUnknown(derivable5))
+
+        println("Given: ${prettyPrint(simplify(derivable5))} , solving for x gives us: ")
+        val solutions2 = solve(derivable5)
+
+        solutions2.forEach { (leftSide, rightSide) ->
+            println("${prettyPrint(leftSide)} = ${prettyPrint(rightSide)}")
+        }
     }
 }
 

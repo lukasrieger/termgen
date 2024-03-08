@@ -1,7 +1,6 @@
-
-val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
+val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i ->
     i.fix().run {
-        when(this) {
+        when (this) {
             is ExprF.Add -> {
                 val leftU = left.unfix.fix()
                 val rightU = right.unfix.fix()
@@ -55,9 +54,11 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                             else -> Fix(i)
                         }
                     }
+
                     else -> Fix(i)
                 }
             }
+
             is ExprF.Const -> Fix(i)
             is ExprF.Div -> {
                 val leftU = left.unfix.fix()
@@ -66,6 +67,7 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                 when {
                     leftU is ExprF.Const && rightU is ExprF.Const ->
                         const(leftU.value / rightU.value)
+
                     rightU is ExprF.Const && leftU is ExprF.Mul -> {
                         val l = leftU.left.fix().unfix.fix()
                         val r = leftU.right.fix().unfix.fix()
@@ -82,6 +84,7 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                     else -> Fix(i)
                 }
             }
+
             is ExprF.Mul -> {
                 val leftU = left.unfix.fix()
                 val rightU = right.unfix.fix()
@@ -98,28 +101,30 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
 
                         when {
                             l is ExprF.Const && r is ExprF.Const -> const(rightU.value * l.value * r.value)
-                            l is ExprF.Const && r !is ExprF.Const -> mul (const(rightU.value * l.value), Fix(r))
-                            l !is ExprF.Const && r is ExprF.Const -> mul (const(rightU.value * r.value), Fix(l))
+                            l is ExprF.Const && r !is ExprF.Const -> mul(const(rightU.value * l.value), Fix(r))
+                            l !is ExprF.Const && r is ExprF.Const -> mul(const(rightU.value * r.value), Fix(l))
                             else -> Fix(i)
                         }
                     }
+
                     leftU is ExprF.Const && rightU is ExprF.Mul -> {
                         val l = rightU.left.fix().unfix.fix()
                         val r = rightU.right.fix().unfix.fix()
 
                         when {
                             l is ExprF.Const && r is ExprF.Const -> const(leftU.value * l.value * r.value)
-                            l is ExprF.Const && r !is ExprF.Const -> mul (const(leftU.value * l.value), Fix(r))
-                            l !is ExprF.Const && r is ExprF.Const -> mul (const(leftU.value * r.value), Fix(l))
+                            l is ExprF.Const && r !is ExprF.Const -> mul(const(leftU.value * l.value), Fix(r))
+                            l !is ExprF.Const && r is ExprF.Const -> mul(const(leftU.value * r.value), Fix(l))
                             else -> Fix(i)
                         }
                     }
+
                     leftU !is ExprF.Const && rightU is ExprF.Mul -> {
                         val l = rightU.left.fix().unfix.fix()
                         val r = rightU.right.fix().unfix.fix()
 
                         when {
-                            l is ExprF.Const && r is ExprF.Const -> mul (Fix(leftU), const(l.value * r.value))
+                            l is ExprF.Const && r is ExprF.Const -> mul(Fix(leftU), const(l.value * r.value))
                             else -> Fix(i)
                         }
                     }
@@ -147,6 +152,7 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                     else -> Fix(i)
                 }
             }
+
             is ExprF.Pow -> Fix(i)
             is ExprF.Sub -> {
                 val leftU = left.unfix.fix()
@@ -155,6 +161,8 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                 when {
                     leftU is ExprF.Const && rightU is ExprF.Const ->
                         const(leftU.value - rightU.value)
+
+                    rightU is ExprF.Const && rightU.value == 0 -> Fix(leftU)
                     leftU is ExprF.Const && rightU is ExprF.Add -> {
                         val l = rightU.left.fix().unfix.fix()
                         val r = rightU.right.fix().unfix.fix()
@@ -164,7 +172,8 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                             else -> Fix(i)
                         }
                     }
-                    rightU is ExprF.Const && leftU is ExprF.Add ->{
+
+                    rightU is ExprF.Const && leftU is ExprF.Add -> {
                         val l = leftU.left.fix().unfix.fix()
                         val r = leftU.right.fix().unfix.fix()
 
@@ -175,10 +184,22 @@ val simplifyAlgebra: Algebra<ForExpr, Fix<ForExpr>> = { i->
                             else -> Fix(i)
                         }
                     }
+
                     else -> Fix(i)
                 }
             }
+
             ExprF.Var -> Fix(i)
+            is ExprF.Sqrt -> {
+                val baseU = base.unfix.fix()
+                val nthU = nth.unfix.fix()
+
+                when {
+                    baseU is ExprF.Const && nthU is ExprF.Const -> const(Operator.Sqrt(baseU.value, nthU.value))
+                    baseU is ExprF.Pow && nthU is ExprF.Const && baseU.exponent == nthU.value -> baseU.base.fix()
+                    else -> Fix(i)
+                }
+            }
         }
     }
 }
