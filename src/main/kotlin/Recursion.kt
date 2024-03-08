@@ -1,50 +1,43 @@
-@file:Suppress("UNCHECKED_CAST")
-
 import arrow.core.andThen
 
 
-interface Functor<F, T> {
-    fun <R> map(f: (T) -> R): Functor<*, R>
+interface Kind<out F, out A>
+
+
+typealias Algebra<F, A> = (Kind<F, A>) -> A
+
+typealias CoAlgebra<F, A> = (A) -> Kind<F, A>
+
+typealias RAlgebra<F, T, A> = (Kind<F, Pair<T, A>>) -> A
+
+
+context(Functor<F>)
+fun <F, A> ana(
+    coAlgebra: CoAlgebra<F, A>
+): (A) -> Fix<F> = { Fix(coAlgebra(it).map(ana(coAlgebra))) }
+
+context(Functor<F>)
+fun <F, A> cata(
+    algebra: Algebra<F, A>
+): (Fix<F>) -> A = { fix ->
+    algebra(fix.unfix.map { cata(algebra)(it.fix()) })
 }
 
-@JvmInline
-value class Fix<F, T>(private val unfix: F) where F : Functor<F, T> {
+context(Functor<F>)
+fun <F, A, B> composedHylo(
+    algebra: Algebra<F, B>,
+    coAlgebra: CoAlgebra<F, A>
+): (A) -> B = ana(coAlgebra) andThen cata(algebra)
 
-    fun unfix(): Functor<*, Fix<F, T>> = unfix as Functor<*, Fix<F, T>>
+context(Functor<F>)
+fun <F, A, B> hylo(
+    algebra: Algebra<F, B>,
+    coAlgebra: CoAlgebra<F, A>
+): (A) -> B = { algebra(coAlgebra(it).map(hylo(algebra, coAlgebra))) }
 
-    override fun toString(): String = unfix.toString()
+context(Functor<F>)
+fun <F, A> para(
+    algebra: RAlgebra<F, Fix<F>, A>
+): (Fix<F>) -> A = { fix ->
+    algebra(fix.unfix.map { it.fix() to para(algebra)(it.fix()) })
 }
-
-fun interface Algebra<F, T> : (F) -> T where F : Functor<F, T>
-
-fun interface CoAlgebra<F, T> : (T) -> F where F : Functor<F, T>
-
-
-/* generalized Fold */
-fun <F, T> cata(
-    algebra: Algebra<F, T>
-): (Fix<F, T>) -> T where F : Functor<F, T> = { fix ->
-    algebra(fix.unfix().map(cata(algebra)) as F)
-}
-
-/* generalized unfold */
-fun <F, T> ana(
-    coAlgebra: CoAlgebra<F, T>
-): (T) -> Fix<F, T> where F : Functor<F, T> = {
-    Fix(coAlgebra(it).map(ana(coAlgebra)) as F)
-}
-
-/** efficient composition of [ana] and [cata] */
-fun <F1, A, F2, B> hylo(
-    algebra: Algebra<F2, B>,
-    coAlgebra: CoAlgebra<F1, A>
-): (A) -> B where F1 : Functor<F1, A>, F2 : Functor<F2, B> = {
-    algebra(coAlgebra(it).map(hylo(algebra, coAlgebra)) as F2)
-}
-
-/** simple composition of [ana] and [cata] */
-fun <F1, A, F2, B> simpleHylo(
-    algebra: Algebra<F2, B>,
-    coAlgebra: CoAlgebra<F1, A>
-): (A) -> B where F1 : Functor<F1, A>, F2 : Functor<F2, B> =
-    ana(coAlgebra) as (A) -> Fix<F2, B> andThen cata(algebra)

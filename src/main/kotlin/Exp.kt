@@ -1,24 +1,72 @@
 @file:Suppress("UNCHECKED_CAST")
 
-import com.lukas.Operator
 
-sealed interface Exp<A> : Functor<Exp<A>, A> {
-    data class BinOp<A>(val left: A, val operator: Operator, val right: A) : Exp<A>
+typealias ExprOf<A> = Kind<ForExpr, A>
 
-    data class Const<A>(val value: Int) : Exp<A>
+data object ForPure : ForExpr()
 
-    override fun <R> map(f: (A) -> R): Functor<*, R> = when (this) {
-        is BinOp -> BinOp(f(left), operator, f(right))
-        is Const -> Const(value)
+typealias PureOf<A> = Kind<ForPure, A>
+
+
+open class ForExpr
+
+fun <A> ExprOf<A>.fix(): Expr<A> = this as Expr<A>
+
+fun <A> PureOf<A>.fix(): ExprF.PureF<A> = this as ExprF.PureF<A>
+
+typealias Expr<A> = ExprF<A, ForExpr>
+
+typealias Pure<A> = ExprF<A, ForPure>
+
+sealed interface ExprF<out A, out K : ForExpr> : Kind<K, A> {
+
+    sealed interface PureF<out A> : ExprF<A, ForPure>
+
+    data class Add<A>(val left: A, val right: A) : PureF<A>
+
+    data class Sub<A>(val left: A, val right: A) : PureF<A>
+
+    data class Mul<A>(val left: A, val right: A) : PureF<A>
+
+    data class Div<A>(val left: A, val right: A) : PureF<A>
+
+    data class Pow<A>(val base: A, val exponent: Int) : PureF<A>
+
+    data class Const(val value: Int) : PureF<Nothing>
+
+    data object Var : ExprF<Nothing, ForExpr>
+
+    companion object {
+        fun <K : ForExpr> functor() = object : Functor<K> {
+            override fun <T, R> Kind<K, T>.map(f: (T) -> R): Kind<K, R> =
+                fix().run {
+                    when (this) {
+                        is Add -> Add(f(left), f(right))
+                        is Const -> Const(value)
+                        is Div -> Div(f(left), f(right))
+                        is Mul -> Mul(f(left), f(right))
+                        is Pow -> Pow(f(base), exponent)
+                        is Sub -> Sub(f(left), f(right))
+                        Var -> Var
+                    }
+                } as Kind<K, R>
+        }
     }
 }
 
-typealias ExpF<T> = Fix<Exp<T>, T>
+data class DeferredExpr(val value: Int, val depth: Int)
 
-fun <T, R> ExpF<T>.into(): ExpF<R> = this as ExpF<R>
 
-data class DeferredExp(val value: Int, val depth: Int)
+fun variable() = Fix(ExprF.Var)
 
-fun <T> binOp(left: Fix<*, T>, op: Operator, right: Fix<*, T>): ExpF<T> = Fix(Exp.BinOp(left, op, right) as Exp<T>)
+fun add(left: Fix<ForExpr>, right: Fix<ForExpr>) = Fix(ExprF.Add(left, right))
 
-fun <T> const(value: Int): ExpF<T> = Fix(Exp.Const(value))
+fun sub(left: Fix<ForExpr>, right: Fix<ForExpr>) = Fix(ExprF.Sub(left, right))
+
+fun mul(left: Fix<ForExpr>, right: Fix<ForExpr>) = Fix(ExprF.Mul(left, right))
+
+fun div(left: Fix<ForExpr>, right: Fix<ForExpr>) = Fix(ExprF.Div(left, right))
+
+fun pow(base: Fix<ForExpr>, exponent: Int) = Fix(ExprF.Pow(base, exponent))
+
+fun const(value: Int) = Fix(ExprF.Const(value))
